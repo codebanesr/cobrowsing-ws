@@ -1,7 +1,12 @@
 var app = require("express")();
 var http = require("http").Server(app);
 
-var io = require("socket.io")(http);
+var io = require("socket.io")(http, {
+  pingInterval: 10000,
+  pingTimeout: 5000,
+  cookie: false,
+  maxHttpBufferSize: 10e9
+});
 
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/index.html");
