@@ -1,0 +1,23 @@
+{
+  "name": "@changyan/express-socket.io-boilerplate",
+  "version": "1.0.0",
+  "description": "An un-opinionated, minimal boilerplate to get started with Express.JS, Socket.io",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thomasyimgit/express-socket.io-boilerplate.git"
+  },
+  "author": "Chang Yan",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/thomasyimgit/express-socket.io-boilerplate/issues"
+  },
+  "homepage": "https://github.com/thomasyimgit/express-socket.io-boilerplate#readme",
+  "dependencies": {
+    "express": "^4.16.2",
+    "socket.io": "^2.0.4"
+  }
+}
