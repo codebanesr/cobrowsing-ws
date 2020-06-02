@@ -73,6 +73,8 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(9898, () => {
-  console.log("listening on *:9898");
+
+const port = process.env.port || 9898
+server.listen(port, () => {
+  console.log(`listening on *:${port}`);
 });
