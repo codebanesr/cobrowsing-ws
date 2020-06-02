@@ -1,7 +1,23 @@
-var app = require("express")();
-var http = require("http").Server(app);
+const fs = require('fs');
+var express = require('express')
+var app = express();
+var https = require("https");
+const dotenv = require('dotenv');
+dotenv.config();
 
-var io = require("socket.io")(http, {
+app.use(express.static(__dirname));
+
+// const presigned = require()
+
+const privateKey = fs.readFileSync('sslcert/server.key');
+const certificate = fs.readFileSync('sslcert/server.crt');
+
+const credentials = {key: privateKey, cert: certificate};
+
+
+var server = https.createServer(credentials, app);
+
+var io = require("socket.io")(server, {
   pingInterval: 10000,
   pingTimeout: 5000,
   cookie: false,
@@ -11,6 +27,14 @@ var io = require("socket.io")(http, {
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/index.html");
 });
+
+
+
+app.get('/presigned', (req, res) => {
+  res.status(200).json({
+    url: "someurlwillbesent"
+  })
+})
 
 io.on("connection", (socket) => {
   console.log("a user connected");
@@ -25,8 +49,7 @@ io.on("connection", (socket) => {
   });
 
 
-  socket.on("fileUpload", (data)=>{
-    console.log("fileYploaded started");
+  socket.on("fileUpload", (data)=>{    
     io.emit("fileUpload", data);
   })
 
@@ -52,6 +75,17 @@ io.on("connection", (socket) => {
   });
 });
 
-http.listen(3000, () => {
-  console.log("listening on *:3000");
+
+const port = process.env.port || 9898
+server.listen(port, () => {
+  console.log(`listening on *:${port}`);
 });
+
+
+// /home/ec2-user/cobrowsing-ui/certs
+
+// http-server . > http.log 2>&1 &
+
+// ../../certs/
+
+// http-server -S -C cert.pem -o
