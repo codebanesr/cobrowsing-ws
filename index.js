@@ -1,14 +1,17 @@
 const fs = require('fs');
-var app = require("express")();
+const express = require('express')
+var app = express();
 var https = require("https");
 const dotenv = require('dotenv');
 dotenv.config();
 
 
+app.use(express.static(__dirname))
+
 // const presigned = require()
 
-const privateKey = fs.readFileSync('sslcert/server.key');
-const certificate = fs.readFileSync('sslcert/server.crt');
+const privateKey = fs.readFileSync('sslcerts/server.key');
+const certificate = fs.readFileSync('sslcerts/server.crt');
 
 const credentials = {key: privateKey, cert: certificate};
 
