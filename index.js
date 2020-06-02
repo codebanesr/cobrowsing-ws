@@ -1,7 +1,21 @@
+const fs = require('fs');
 var app = require("express")();
-var http = require("http").Server(app);
+var https = require("https");
+const dotenv = require('dotenv');
+dotenv.config();
 
-var io = require("socket.io")(http, {
+
+// const presigned = require()
+
+const privateKey = fs.readFileSync('sslcert/server.key');
+const certificate = fs.readFileSync('sslcert/server.crt');
+
+const credentials = {key: privateKey, cert: certificate};
+
+
+var server = https.createServer(credentials, app);
+
+var io = require("socket.io")(server, {
   pingInterval: 10000,
   pingTimeout: 5000,
   cookie: false,
@@ -11,6 +25,14 @@ var io = require("socket.io")(http, {
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/index.html");
 });
+
+
+
+app.get('/presigned', (req, res) => {
+  res.status(200).json({
+    url: "someurlwillbesent"
+  })
+})
 
 io.on("connection", (socket) => {
   console.log("a user connected");
@@ -25,8 +47,7 @@ io.on("connection", (socket) => {
   });
 
 
-  socket.on("fileUpload", (data)=>{
-    console.log("fileYploaded started");
+  socket.on("fileUpload", (data)=>{    
     io.emit("fileUpload", data);
   })
 
@@ -52,6 +73,6 @@ io.on("connection", (socket) => {
   });
 });
 
-http.listen(3000, () => {
-  console.log("listening on *:3000");
+server.listen(9898, () => {
+  console.log("listening on *:9898");
 });
