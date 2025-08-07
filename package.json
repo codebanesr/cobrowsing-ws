@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Web-based co-browsing service like Surfly",
   "main": "server.js",
+  "license": "MIT",
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "nodemon server.js",
