@@ -1,25 +1,22 @@
 {
-  "name": "@changyan/express-socket.io-boilerplate",
+  "name": "cobrowsing-ws",
   "version": "1.0.0",
-  "description": "An un-opinionated, minimal boilerplate to get started with Express.JS, Socket.io",
-  "main": "index.js",
+  "description": "Open-source collaborative co-browsing app with Chrome extension",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "bun run backend/server.ts",
+    "build": "bun build backend/server.ts --outdir dist",
+    "start": "bun run dist/server.js",
+    "build:extension": "cd extension && npm run build"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/thomasyimgit/express-socket.io-boilerplate.git"
-  },
-  "author": "Chang Yan",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/thomasyimgit/express-socket.io-boilerplate/issues"
-  },
-  "homepage": "https://github.com/thomasyimgit/express-socket.io-boilerplate#readme",
   "dependencies": {
-    "aws-signature-v4": "^1.4.0",
-    "dotenv": "^8.2.0",
-    "express": "^4.16.2",
-    "socket.io": "^2.0.4"
+    "ws": "^8.14.2",
+    "uuid": "^9.0.1",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.8",
+    "@types/uuid": "^9.0.7",
+    "@types/cors": "^2.8.17"
   }
 }
