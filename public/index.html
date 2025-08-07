@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoBrowse - Share & Browse Together</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="login-screen" class="screen">
+        <div class="login-container fade-in">
+            <h1>🌐 CoBrowse</h1>
+            <p class="subtitle">Browse websites together in real-time</p>
+            
+            <div class="form-group">
+                <label for="userName">Your Name</label>
+                <input type="text" id="userName" placeholder="Enter your name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="sessionId">Session ID</label>
+                <input type="text" id="sessionId" placeholder="Click to generate or enter existing session">
+            </div>
+            
+            <div class="form-group">
+                <label for="role">Role</label>
+                <select id="role">
+                    <option value="teacher">👨‍🏫 Teacher (Can control navigation)</option>
+                    <option value="student">👨‍🎓 Student (View only)</option>
+                </select>
+            </div>
+            
+            <button id="joinBtn" class="primary-btn">Join Co-Browsing Session</button>
+        </div>
+    </div>
+
+    <!-- Co-Browsing Interface -->
+    <div id="cobrowsing-screen" class="screen hidden">
+        <!-- Top Navigation -->
+        <div class="top-nav">
+            <div class="nav-left">
+                <div class="logo">CoBrowse</div>
+                <div class="session-badge">
+                    <span>Session:</span>
+                    <span class="session-id" id="currentSessionId"></span>
+                    <span class="role-badge" id="userRoleBadge"></span>
+                </div>
+            </div>
+            
+            <div class="url-nav" id="navigationBar">
+                <input type="url" id="urlInput" class="url-input" placeholder="Enter website URL (e.g. wikipedia.org)" value="https://wikipedia.org">
+                <button id="navigateBtn" class="nav-btn">Go</button>
+            </div>
+            
+            <div class="nav-right">
+                <button class="participants-btn" id="participantsBtn">
+                    <span>👥</span>
+                    <span class="participant-count" id="participantCount">1</span>
+                    
+                    <!-- Participants Dropdown -->
+                    <div class="participants-dropdown" id="participantsDropdown">
+                        <div id="participantsList"></div>
+                    </div>
+                </button>
+                
+                <button class="nav-btn" id="leaveBtn" style="background: #ef4444;">Leave</button>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="content-area">
+            <div class="iframe-container">
+                <div id="loadingIndicator" class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>Loading website...</p>
+                </div>
+                <iframe id="sharedFrame" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"></iframe>
+            </div>
+        </div>
+
+        <!-- Floating Controls -->
+        <div class="floating-controls">
+            <button class="control-btn activity-btn tooltip" id="activityBtn" data-tooltip="Activity Log">
+                📋
+            </button>
+        </div>
+
+        <!-- Activity Panel -->
+        <div class="activity-panel" id="activityPanel">
+            <div class="panel-header">
+                <h3>Session Activity</h3>
+                <p>Real-time session updates</p>
+            </div>
+            <div class="activity-list" id="activityList">
+                <!-- Activity items will be added here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
