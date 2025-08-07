@@ -32,12 +32,13 @@ class CoBrowsingClient {
         this.participantCount = document.getElementById('participantCount');
         this.participantsDropdown = document.getElementById('participantsDropdown');
         this.participantsList = document.getElementById('participantsList');
-        this.sharedFrame = document.getElementById('sharedFrame');
+        this.sharedScreen = document.getElementById('sharedScreen'); // Changed from sharedFrame
         this.loadingIndicator = document.getElementById('loadingIndicator');
         this.activityBtn = document.getElementById('activityBtn');
         this.activityPanel = document.getElementById('activityPanel');
         this.activityList = document.getElementById('activityList');
         this.leaveBtn = document.getElementById('leaveBtn');
+        this.cursorsContainer = document.getElementById('cursors-container');
     }
 
     setupEventListeners() {
@@ -81,6 +82,9 @@ class CoBrowsingClient {
         // Prevent dropdown close when clicking inside
         this.participantsDropdown.addEventListener('click', (e) => e.stopPropagation());
         this.activityPanel.addEventListener('click', (e) => e.stopPropagation());
+        
+        // Set up screen interaction handlers
+        this.setupScreenInteraction();
     }
 
     generateSessionId() {
@@ -139,11 +143,15 @@ class CoBrowsingClient {
         });
 
         this.socket.on('navigate', (data) => {
-            this.loadUrl(data.url);
+            this.addActivity(`Navigating to ${data.url}`, 'info');
         });
 
-        this.socket.on('sync-interaction', (data) => {
-            this.handleSyncedInteraction(data);
+        this.socket.on('screen-update', (data) => {
+            this.updateScreen(data.screenshot);
+        });
+
+        this.socket.on('cursor-update', (data) => {
+            this.updateCursor(data);
         });
 
         this.socket.on('user-joined', (data) => {
@@ -179,11 +187,6 @@ class CoBrowsingClient {
             this.navigationBar.style.display = 'none';
         }
 
-        // Load current URL if available
-        if (data.currentUrl) {
-            this.loadUrl(data.currentUrl);
-        }
-
         this.addActivity(`Welcome! You joined as ${this.role}`, 'success');
         this.updateParticipants(data.participants);
         
@@ -210,116 +213,100 @@ class CoBrowsingClient {
         this.addActivity(`Navigating to ${fullUrl}`, 'info');
     }
 
-    loadUrl(url) {
-        this.currentUrl = url;
-        this.urlInput.value = url;
-        this.showLoading(true);
-        
-        // Load through proxy
-        const proxyUrl = `/proxy?url=${encodeURIComponent(url)}&sessionId=${this.sessionId}`;
-        this.sharedFrame.src = proxyUrl;
-        
-        this.sharedFrame.onload = () => {
-            this.showLoading(false);
-            this.setupFrameInteractionCapture();
-        };
+    setupScreenInteraction() {
+        if (!this.sharedScreen) return;
 
-        this.sharedFrame.onerror = () => {
+        // Mouse events
+        this.sharedScreen.addEventListener('mousemove', (e) => {
+            const rect = this.sharedScreen.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (1920 / rect.width);
+            const y = (e.clientY - rect.top) * (1080 / rect.height);
+            
+            this.socket.emit('mouse-event', {
+                type: 'move',
+                x: Math.round(x),
+                y: Math.round(y)
+            });
+        });
+
+        this.sharedScreen.addEventListener('click', (e) => {
+            const rect = this.sharedScreen.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (1920 / rect.width);
+            const y = (e.clientY - rect.top) * (1080 / rect.height);
+            
+            this.socket.emit('mouse-event', {
+                type: 'click',
+                x: Math.round(x),
+                y: Math.round(y),
+                button: e.button === 0 ? 'left' : e.button === 2 ? 'right' : 'middle'
+            });
+        });
+
+        this.sharedScreen.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            this.socket.emit('scroll-event', {
+                deltaX: e.deltaX,
+                deltaY: e.deltaY
+            });
+        });
+
+        // Keyboard events
+        document.addEventListener('keydown', (e) => {
+            if (document.activeElement === this.sharedScreen) {
+                this.socket.emit('keyboard-event', {
+                    type: 'keydown',
+                    key: e.key
+                });
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (document.activeElement === this.sharedScreen) {
+                this.socket.emit('keyboard-event', {
+                    type: 'keyup',
+                    key: e.key
+                });
+            }
+        });
+
+        // Make screen focusable for keyboard events
+        this.sharedScreen.setAttribute('tabindex', '0');
+    }
+
+    updateScreen(screenshot) {
+        if (this.sharedScreen && screenshot) {
+            this.sharedScreen.src = screenshot;
             this.showLoading(false);
-            this.addActivity(`Failed to load: ${url}`, 'warning');
-            this.showMessage('Failed to load website. It may block iframe embedding.', 'warning');
-        };
+        }
+    }
+
+    updateCursor(data) {
+        if (!this.cursorsContainer) return;
+
+        let cursor = document.getElementById(`cursor-${data.userId}`);
+        if (!cursor) {
+            cursor = document.createElement('div');
+            cursor.id = `cursor-${data.userId}`;
+            cursor.className = 'remote-cursor';
+            cursor.innerHTML = `
+                <div class="cursor-pointer"></div>
+                <div class="cursor-label">${data.userName}</div>
+            `;
+            this.cursorsContainer.appendChild(cursor);
+        }
+
+        const rect = this.sharedScreen.getBoundingClientRect();
+        const scaledX = (data.x / 1920) * rect.width;
+        const scaledY = (data.y / 1080) * rect.height;
+
+        cursor.style.left = `${rect.left + scaledX}px`;
+        cursor.style.top = `${rect.top + scaledY}px`;
     }
 
     showLoading(show) {
         this.loadingIndicator.style.display = show ? 'flex' : 'none';
     }
 
-    setupFrameInteractionCapture() {
-        if (this.role !== 'teacher') return;
-
-        try {
-            const frameDocument = this.sharedFrame.contentDocument;
-            if (!frameDocument) return;
-
-            // Capture clicks
-            frameDocument.addEventListener('click', (e) => {
-                this.captureInteraction('click', {
-                    x: e.clientX,
-                    y: e.clientY,
-                    target: this.getElementSelector(e.target)
-                });
-            });
-
-            // Capture scrolling
-            frameDocument.addEventListener('scroll', (e) => {
-                this.captureInteraction('scroll', {
-                    scrollX: frameDocument.documentElement.scrollLeft,
-                    scrollY: frameDocument.documentElement.scrollTop
-                });
-            });
-
-            // Capture input changes
-            frameDocument.addEventListener('input', (e) => {
-                if (e.target.matches('input, textarea, select')) {
-                    this.captureInteraction('input', {
-                        target: this.getElementSelector(e.target),
-                        value: e.target.value,
-                        type: e.target.type || 'text'
-                    });
-                }
-            });
-
-        } catch (error) {
-            console.log('Could not access frame content (CORS restriction)');
-            this.addActivity('Note: Some interactions may not sync due to website security policies', 'warning');
-        }
-    }
-
-    captureInteraction(type, data) {
-        const interaction = {
-            type,
-            data,
-            timestamp: Date.now()
-        };
-
-        this.socket.emit('interaction', interaction);
-    }
-
-    handleSyncedInteraction(interaction) {
-        try {
-            const frameDocument = this.sharedFrame.contentDocument;
-            if (!frameDocument) return;
-
-            switch (interaction.type) {
-                case 'click':
-                    const element = frameDocument.querySelector(interaction.data.target);
-                    if (element) {
-                        element.click();
-                        this.highlightElement(element);
-                    }
-                    break;
-
-                case 'scroll':
-                    frameDocument.documentElement.scrollTo(
-                        interaction.data.scrollX,
-                        interaction.data.scrollY
-                    );
-                    break;
-
-                case 'input':
-                    const inputElement = frameDocument.querySelector(interaction.data.target);
-                    if (inputElement) {
-                        inputElement.value = interaction.data.value;
-                        inputElement.dispatchEvent(new Event('input', { bubbles: true }));
-                        this.highlightElement(inputElement);
-                    }
-                    break;
-            }
-        } catch (error) {
-            console.log('Could not sync interaction:', error.message);
-        }
-    }
 
     highlightElement(element) {
         element.style.outline = '3px solid #6366f1';

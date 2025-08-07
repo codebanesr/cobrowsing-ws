@@ -73,12 +73,13 @@
 
         <!-- Main Content Area -->
         <div class="content-area">
-            <div class="iframe-container">
+            <div class="screen-container">
                 <div id="loadingIndicator" class="loading">
                     <div class="loading-spinner"></div>
-                    <p>Loading website...</p>
+                    <p>Loading browser screen...</p>
                 </div>
-                <iframe id="sharedFrame" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"></iframe>
+                <img id="sharedScreen" class="shared-screen" alt="Shared browser screen">
+                <div id="cursors-container" class="cursors-container"></div>
             </div>
         </div>
 
