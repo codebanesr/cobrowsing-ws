@@ -10,14 +10,32 @@ class CobrowsingBackground {
 
   setupEventListeners() {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      this.handleMessage(message, sender, sendResponse);
-      return true; // Keep the message channel open for async responses
+      try {
+        this.handleMessage(message, sender, sendResponse);
+        return true; // Keep the message channel open for async responses
+      } catch (error) {
+        console.error('Error handling message:', error);
+        sendResponse({ success: false, error: error.message });
+        return false;
+      }
     });
 
     this.setupTabListeners();
   }
 
   handleMessage(message, sender, sendResponse) {
+    // Validate message and extension context
+    if (!message || !message.type) {
+      sendResponse({ success: false, error: 'Invalid message format' });
+      return;
+    }
+    
+    // Check if extension context is still valid
+    if (chrome.runtime.lastError || !chrome.runtime.id) {
+      console.log('Extension context invalidated');
+      return;
+    }
+    
     switch (message.type) {
       case 'connect':
         this.connect().then(() => {
@@ -107,8 +125,14 @@ class CobrowsingBackground {
         };
 
         this.ws.onmessage = (event) => {
-          const message = JSON.parse(event.data);
-          this.handleServerMessage(message);
+          try {
+            const message = JSON.parse(event.data);
+            if (message && typeof message === 'object') {
+              this.handleServerMessage(message);
+            }
+          } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
+          }
         };
 
       } catch (error) {

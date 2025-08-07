@@ -4,17 +4,29 @@ class CobrowsingContent {
     this.isActive = false;
     this.lastScrollTime = 0;
     this.scrollThrottle = 100; // ms
-    this.remoteCursor = null;
+    this.highlightedElement = null;
     this.setupMessageListener();
     this.injectScript();
-    this.createRemoteCursor();
+    this.createHighlightStyle();
     this.requestCurrentState();
   }
 
   setupMessageListener() {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      this.handleMessage(message, sender, sendResponse);
-      return true;
+      try {
+        // Validate message
+        if (!message || !message.type) {
+          sendResponse({ success: false, error: 'Invalid message format' });
+          return false;
+        }
+        
+        this.handleMessage(message, sender, sendResponse);
+        return true;
+      } catch (error) {
+        console.error('Error handling message in content script:', error);
+        sendResponse({ success: false, error: error.message });
+        return false;
+      }
     });
   }
 
@@ -72,8 +84,8 @@ class CobrowsingContent {
       case 'form-submit':
         this.applyFormSubmit(data);
         break;
-      case 'cursor-move':
-        this.applyCursorMove(data);
+      case 'element-highlight':
+        this.applyElementHighlight(data);
         break;
       case 'focus':
         this.applyFocus(data);
@@ -187,20 +199,81 @@ class CobrowsingContent {
     return element.tagName.toLowerCase();
   }
 
-  applyCursorMove(data) {
-    if (this.remoteCursor) {
-      this.remoteCursor.style.left = `${data.pageX}px`;
-      this.remoteCursor.style.top = `${data.pageY}px`;
-      this.remoteCursor.style.display = 'block';
+  applyElementHighlight(data) {
+    // Remove previous highlight
+    if (this.highlightedElement) {
+      this.highlightedElement.classList.remove('cobrowsing-highlight');
+    }
+    
+    // Use selector if provided, otherwise use coordinates
+    let element;
+    if (data.selector) {
+      element = this.findElementBySelector(data.selector);
+    } else if (data.clientX !== undefined && data.clientY !== undefined) {
+      element = document.elementFromPoint(data.clientX, data.clientY);
+    }
+    
+    if (element) {
+      // Always highlight the element, regardless of type for better visibility
+      element.classList.add('cobrowsing-highlight');
+      this.highlightedElement = element;
       
-      // Hide cursor after 3 seconds of inactivity
-      clearTimeout(this.remoteCursor._hideTimeout);
-      this.remoteCursor._hideTimeout = setTimeout(() => {
-        if (this.remoteCursor) {
-          this.remoteCursor.style.display = 'none';
+      // Remove highlight after 3 seconds
+      clearTimeout(this.highlightTimeout);
+      this.highlightTimeout = setTimeout(() => {
+        if (this.highlightedElement === element) {
+          element.classList.remove('cobrowsing-highlight');
+          this.highlightedElement = null;
         }
       }, 3000);
     }
+  }
+
+  isInteractiveElement(element) {
+    if (!element) return false;
+    
+    const interactiveTags = ['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'LABEL', 'OPTION'];
+    const interactiveRoles = ['button', 'link', 'tab', 'menuitem', 'checkbox', 'radio'];
+    const interactiveTypes = ['button', 'submit', 'reset', 'checkbox', 'radio'];
+    
+    // Check tag name
+    if (interactiveTags.includes(element.tagName)) return true;
+    
+    // Check role attribute
+    const role = element.getAttribute('role');
+    if (role && interactiveRoles.includes(role)) return true;
+    
+    // Check input type
+    if (element.tagName === 'INPUT' && element.type) {
+      if (interactiveTypes.includes(element.type)) return true;
+    }
+    
+    // Check for event handlers
+    if (element.hasAttribute('onclick') || 
+        element.hasAttribute('onmousedown') ||
+        element.hasAttribute('onmouseup')) return true;
+    
+    // Check tabindex
+    if (element.hasAttribute('tabindex') && element.getAttribute('tabindex') !== '-1') return true;
+    
+    // Check cursor style
+    const computedStyle = getComputedStyle(element);
+    if (computedStyle.cursor === 'pointer') return true;
+    
+    // Check if element is contenteditable
+    if (element.contentEditable === 'true') return true;
+    
+    // Check if parent is interactive (for spans/divs inside buttons)
+    let parent = element.parentElement;
+    while (parent && parent !== document.body) {
+      if (interactiveTags.includes(parent.tagName) || 
+          (parent.getAttribute('role') && interactiveRoles.includes(parent.getAttribute('role')))) {
+        return true;
+      }
+      parent = parent.parentElement;
+    }
+    
+    return false;
   }
 
   applyFocus(data) {
@@ -219,52 +292,56 @@ class CobrowsingContent {
     }
   }
 
-  createRemoteCursor() {
-    // Remove existing cursor if any
-    if (this.remoteCursor) {
-      this.remoteCursor.remove();
+  createHighlightStyle() {
+    // Remove existing style if it exists
+    const existingStyle = document.getElementById('cobrowsing-highlight-style');
+    if (existingStyle) {
+      existingStyle.remove();
     }
 
-    // Ensure DOM is ready
-    const createCursor = () => {
-      // Create remote cursor element
-      this.remoteCursor = document.createElement('div');
-      this.remoteCursor.id = 'cobrowsing-remote-cursor';
-      this.remoteCursor.style.cssText = `
-        position: absolute;
-        width: 24px;
-        height: 24px;
-        pointer-events: none;
-        z-index: 999999;
-        display: none;
-        transition: all 0.08s ease;
-        filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
-      `;
-
-      // Create cursor SVG with better visibility
-      this.remoteCursor.innerHTML = `
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M3 3L20 10L12 12L10 20L3 3Z" fill="#FF4444" stroke="#FFFFFF" stroke-width="2"/>
-          <path d="M3 3L20 10L12 12L10 20L3 3Z" fill="none" stroke="#000000" stroke-width="1"/>
-          <circle cx="18" cy="6" r="4" fill="#FF4444" stroke="#FFFFFF" stroke-width="2"/>
-          <circle cx="18" cy="6" r="4" fill="none" stroke="#000000" stroke-width="1"/>
-          <text x="18" y="8" text-anchor="middle" fill="#FFFFFF" font-family="Arial" font-size="8" font-weight="bold">●</text>
-        </svg>
-      `;
-
-      // Append to body when it's available
-      if (document.body) {
-        document.body.appendChild(this.remoteCursor);
-      } else {
-        // Body not ready yet, wait a bit
-        setTimeout(createCursor, 100);
+    const style = document.createElement('style');
+    style.id = 'cobrowsing-highlight-style';
+    style.textContent = `
+      .cobrowsing-highlight {
+        position: relative !important;
+        outline: 2px solid #FF4444 !important;
+        outline-offset: 1px !important;
+        background-color: rgba(255, 68, 68, 0.15) !important;
+        box-shadow: 0 0 8px rgba(255, 68, 68, 0.4), inset 0 0 8px rgba(255, 68, 68, 0.1) !important;
+        border-radius: 3px !important;
+        transition: all 0.15s ease-in-out !important;
+        z-index: 999999 !important;
       }
-    };
-
-    createCursor();
+      
+      .cobrowsing-highlight::before {
+        content: '' !important;
+        position: absolute !important;
+        top: -3px !important;
+        left: -3px !important;
+        right: -3px !important;
+        bottom: -3px !important;
+        border: 1px solid rgba(255, 68, 68, 0.8) !important;
+        border-radius: 4px !important;
+        pointer-events: none !important;
+        z-index: -1 !important;
+      }
+      
+      .cobrowsing-highlight:hover {
+        outline-color: #FF6666 !important;
+        background-color: rgba(255, 68, 68, 0.2) !important;
+      }
+    `;
+    
+    (document.head || document.documentElement).appendChild(style);
   }
 
   sendEventToBackground(eventType, data) {
+    // Check if extension context is still valid
+    if (!chrome.runtime || !chrome.runtime.id) {
+      console.log('Extension context invalidated, cannot send event');
+      return;
+    }
+    
     chrome.runtime.sendMessage({
       type: 'sync-event',
       eventType: eventType,
@@ -276,6 +353,12 @@ class CobrowsingContent {
 
   async requestCurrentState() {
     try {
+      // Check if extension context is still valid
+      if (!chrome.runtime || !chrome.runtime.id) {
+        console.log('Extension context invalidated, cannot request state');
+        return;
+      }
+      
       const response = await chrome.runtime.sendMessage({ type: 'get-status' });
       if (response && response.roomId) {
         this.isActive = true;

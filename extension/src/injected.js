@@ -66,12 +66,24 @@
     if (!isCapturing) return;
     
     const selector = generateSelector(event.target);
+    
+    // Send click event
     sendEvent('click', {
       selector: selector,
       x: event.clientX,
       y: event.clientY,
       tagName: event.target.tagName,
       href: event.target.href || null
+    });
+    
+    // Also send highlight event for clicked element
+    sendEvent('element-highlight', {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      selector: selector,
+      tagName: event.target.tagName,
+      className: event.target.className,
+      id: event.target.id
     });
   }, true);
 
@@ -138,22 +150,43 @@
     }
   }, true);
 
-  // Capture mouse movement for cursor synchronization
-  let lastMouseTime = 0;
-  const mouseThrottle = 50; // ms - more frequent for smooth cursor movement
+  // Capture mouse hover over interactive elements
+  let lastHoverTime = 0;
+  let lastHoveredElement = null;
+  const hoverThrottle = 200; // ms - less frequent for element highlighting
+  
+  function isInteractiveElement(element) {
+    const interactiveTags = ['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'LABEL'];
+    const interactiveRoles = ['button', 'link', 'tab', 'menuitem'];
+    
+    return interactiveTags.includes(element.tagName) ||
+           interactiveRoles.includes(element.getAttribute('role')) ||
+           element.hasAttribute('onclick') ||
+           element.hasAttribute('tabindex') ||
+           element.style.cursor === 'pointer' ||
+           getComputedStyle(element).cursor === 'pointer';
+  }
   
   document.addEventListener('mousemove', (event) => {
     if (!isCapturing) return;
     
     const now = Date.now();
-    if (now - lastMouseTime < mouseThrottle) return;
-    lastMouseTime = now;
+    if (now - lastHoverTime < hoverThrottle) return;
     
-    sendEvent('cursor-move', {
-      x: event.clientX,
-      y: event.clientY,
-      pageX: event.pageX,
-      pageY: event.pageY
+    const element = event.target;
+    if (element === lastHoveredElement) return;
+    
+    // Send highlight for any element (let content script decide what to highlight)
+    lastHoverTime = now;
+    lastHoveredElement = element;
+    
+    sendEvent('element-highlight', {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      selector: generateSelector(element),
+      tagName: element.tagName,
+      className: element.className,
+      id: element.id
     });
   }, { passive: true });
 

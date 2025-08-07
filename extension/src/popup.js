@@ -204,6 +204,18 @@ class CobrowsingPopup {
 
   sendMessage(message) {
     return new Promise((resolve, reject) => {
+      // Check if extension context is still valid
+      if (!chrome.runtime || !chrome.runtime.id) {
+        reject(new Error('Extension context invalidated'));
+        return;
+      }
+      
+      // Validate message
+      if (!message || !message.type) {
+        reject(new Error('Invalid message format'));
+        return;
+      }
+      
       chrome.runtime.sendMessage(message, (response) => {
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
