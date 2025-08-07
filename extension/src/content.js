@@ -269,6 +269,8 @@ class CobrowsingContent {
       type: 'sync-event',
       eventType: eventType,
       data: data
+    }).catch(error => {
+      console.log('Could not send event to background:', error.message);
     });
   }
 

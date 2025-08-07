@@ -264,11 +264,16 @@ class CobrowsingBackground {
 
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tabs[0]) {
-      chrome.tabs.sendMessage(tabs[0].id, {
-        type: 'apply-sync-event',
-        eventType: message.eventType,
-        data: message.data
-      });
+      try {
+        await chrome.tabs.sendMessage(tabs[0].id, {
+          type: 'apply-sync-event',
+          eventType: message.eventType,
+          data: message.data
+        });
+      } catch (error) {
+        // Content script might not be injected yet, that's okay
+        console.log('Could not send sync event to tab:', error.message);
+      }
     }
   }
 
