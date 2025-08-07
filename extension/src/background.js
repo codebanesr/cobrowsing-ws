@@ -14,11 +14,7 @@ class CobrowsingBackground {
       return true; // Keep the message channel open for async responses
     });
 
-    chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-      if (changeInfo.status === 'complete' && this.isController && this.roomId) {
-        this.sendSyncEvent('navigation', { url: tab.url });
-      }
-    });
+    this.setupTabListeners();
   }
 
   handleMessage(message, sender, sendResponse) {
@@ -150,6 +146,7 @@ class CobrowsingBackground {
           this.ws.onmessage = originalHandler;
           this.roomId = message.roomId;
           this.isController = message.isController;
+          this.notifyContentScripts();
           resolve(message.roomId);
         } else {
           originalHandler(event);
@@ -178,6 +175,7 @@ class CobrowsingBackground {
           this.ws.onmessage = originalHandler;
           this.roomId = message.roomId;
           this.isController = message.isController;
+          this.notifyContentScripts();
           resolve();
         } else if (message.type === 'error') {
           clearTimeout(timeout);
@@ -239,6 +237,7 @@ class CobrowsingBackground {
           type: 'controller-changed', 
           isController: this.isController 
         });
+        this.notifyContentScripts();
         break;
 
       case 'control-released':
@@ -246,6 +245,7 @@ class CobrowsingBackground {
         this.notifyPopup({ 
           type: 'control-released' 
         });
+        this.notifyContentScripts();
         break;
 
       case 'sync-event':
@@ -276,6 +276,48 @@ class CobrowsingBackground {
     // Try to send message to popup if it's open
     chrome.runtime.sendMessage(message).catch(() => {
       // Popup not open, that's fine
+    });
+  }
+
+  async notifyContentScripts() {
+    try {
+      const tabs = await chrome.tabs.query({});
+      for (const tab of tabs) {
+        try {
+          await chrome.tabs.sendMessage(tab.id, {
+            type: 'set-controller',
+            isController: this.isController,
+            isActive: this.roomId !== null
+          });
+        } catch (error) {
+          // Tab might not have content script injected, that's okay
+        }
+      }
+    } catch (error) {
+      console.error('Error notifying content scripts:', error);
+    }
+  }
+
+  // Also listen for tab navigation to re-notify content scripts
+  setupTabListeners() {
+    chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+      // Handle navigation sync
+      if (changeInfo.status === 'complete' && this.isController && this.roomId) {
+        this.sendSyncEvent('navigation', { url: tab.url });
+      }
+      
+      // Re-notify content script when page loads (after navigation)
+      if (changeInfo.status === 'complete' && this.roomId) {
+        try {
+          await chrome.tabs.sendMessage(tabId, {
+            type: 'set-controller',
+            isController: this.isController,
+            isActive: this.roomId !== null
+          });
+        } catch (error) {
+          // Content script might not be ready yet, that's okay
+        }
+      }
     });
   }
 }

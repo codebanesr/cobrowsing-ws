@@ -203,8 +203,16 @@ class CobrowsingPopup {
   }
 
   sendMessage(message) {
-    return new Promise((resolve) => {
-      chrome.runtime.sendMessage(message, resolve);
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(message, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else if (response === undefined) {
+          reject(new Error('No response from background script'));
+        } else {
+          resolve(response);
+        }
+      });
     });
   }
 

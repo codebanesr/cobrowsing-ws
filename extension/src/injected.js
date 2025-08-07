@@ -75,7 +75,7 @@
     });
   }, true);
 
-  // Capture input events
+  // Capture input events with cursor position
   document.addEventListener('input', (event) => {
     if (!isCapturing) return;
     
@@ -84,10 +84,27 @@
       sendEvent('input', {
         selector: selector,
         value: event.target.value,
-        type: event.target.type
+        type: event.target.type,
+        selectionStart: event.target.selectionStart,
+        selectionEnd: event.target.selectionEnd
       });
     }
   }, true);
+
+  // Capture selection changes in input fields
+  document.addEventListener('selectionchange', () => {
+    if (!isCapturing) return;
+    
+    const activeElement = document.activeElement;
+    if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+      const selector = generateSelector(activeElement);
+      sendEvent('selection-change', {
+        selector: selector,
+        selectionStart: activeElement.selectionStart,
+        selectionEnd: activeElement.selectionEnd
+      });
+    }
+  });
 
   // Capture form submissions
   document.addEventListener('submit', (event) => {
@@ -120,6 +137,25 @@
       });
     }
   }, true);
+
+  // Capture mouse movement for cursor synchronization
+  let lastMouseTime = 0;
+  const mouseThrottle = 50; // ms - more frequent for smooth cursor movement
+  
+  document.addEventListener('mousemove', (event) => {
+    if (!isCapturing) return;
+    
+    const now = Date.now();
+    if (now - lastMouseTime < mouseThrottle) return;
+    lastMouseTime = now;
+    
+    sendEvent('cursor-move', {
+      x: event.clientX,
+      y: event.clientY,
+      pageX: event.pageX,
+      pageY: event.pageY
+    });
+  }, { passive: true });
 
   // Listen for control changes from content script
   window.addEventListener('message', (event) => {

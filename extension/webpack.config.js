@@ -14,6 +14,7 @@ module.exports = {
     clean: true,
   },
   mode: 'production',
+  devtool: false,
   plugins: [
     new CopyPlugin({
       patterns: [
