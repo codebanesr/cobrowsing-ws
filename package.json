@@ -1,0 +1,22 @@
+{
+  "name": "cobrowsing-ws",
+  "version": "1.0.0",
+  "description": "Open-source collaborative co-browsing app with Chrome extension",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run backend/server.ts",
+    "build": "bun build backend/server.ts --outdir dist",
+    "start": "bun run dist/server.js",
+    "build:extension": "cd extension && npm run build"
+  },
+  "dependencies": {
+    "ws": "^8.14.2",
+    "uuid": "^9.0.1",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.8",
+    "@types/uuid": "^9.0.7",
+    "@types/cors": "^2.8.17"
+  }
+}
